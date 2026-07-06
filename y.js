@@ -82,7 +82,6 @@
         return originalFetch2.apply(this, arguments).then(function(response) {
             var clone = response.clone();
             clone.json().then(function(data) {
-                // Look for access_token anywhere in the response
                 if (data && typeof data === 'object') {
                     var token = data.access_token || data.token || data.accessToken;
                     if (token) {
